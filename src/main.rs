@@ -1,21 +1,21 @@
-#[allow(unused_imports)]
+use anyhow::{anyhow, Result};
 use std::env;
-#[allow(unused_imports)]
-use std::fs;
 
-fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    println!("Logs from your program will appear here!");
+mod commands;
+use crate::commands::cmd_init;
 
-    // Uncomment this block to pass the first stage
-    // let args: Vec<String> = env::args().collect();
-    // if args[1] == "init" {
-    //     fs::create_dir(".git").unwrap();
-    //     fs::create_dir(".git/objects").unwrap();
-    //     fs::create_dir(".git/refs").unwrap();
-    //     fs::write(".git/HEAD", "ref: refs/heads/main\n").unwrap();
-    //     println!("Initialized git directory")
-    // } else {
-    //     println!("unknown command: {}", args[1])
-    // }
+fn main() -> Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 2 {
+        return Err(anyhow!("Usage: your_bittorrent.sh <command>"));
+    }
+    let command = &args[1];
+
+    match command.as_str() {
+        // Usage: your_git.sh init
+        "init" => {
+            cmd_init()
+        },
+        _ => Err(anyhow!("Unknown command: {}", command))
+    }
 }
