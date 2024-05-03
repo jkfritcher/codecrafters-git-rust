@@ -2,12 +2,16 @@ use anyhow::{anyhow, Result};
 use std::env;
 
 mod commands;
-use crate::commands::cmd_init;
+mod types;
+
+use crate::commands::{
+    cmd_cat_file, cmd_init
+};
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        return Err(anyhow!("Usage: your_bittorrent.sh <command>"));
+        return Err(anyhow!("Usage: your_git.sh <command>"));
     }
     let command = &args[1];
 
@@ -15,6 +19,13 @@ fn main() -> Result<()> {
         // Usage: your_git.sh init
         "init" => {
             cmd_init()
+        },
+        // Usage: your_git.sh cat-file -p <object hash>
+        "cat-file" => {
+            if args.len() < 4 || args[2] != "-p" {
+                return Err(anyhow!("Usage: your_git.sh cat-file -p <object hash>"));
+            }
+            cmd_cat_file(&args[3])
         },
         _ => Err(anyhow!("Unknown command: {}", command))
     }
