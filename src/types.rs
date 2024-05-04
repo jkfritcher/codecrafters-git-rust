@@ -7,7 +7,11 @@ pub enum Object {
 }
 
 impl Object {
-    pub fn build(data: &[u8]) -> Result<Object> {
+    pub fn blob(contents: Vec<u8>) -> Self {
+        Self::Blob(contents)
+    }
+
+    pub fn deserialize(data: &[u8]) -> Result<Object> {
         // Split the header and contents into parts
         let parts = data.split(|b| *b == b'\0').collect::<Vec<&[u8]>>();
         if parts.len() != 2 {
@@ -30,5 +34,18 @@ impl Object {
             "blob" => Ok(Self::Blob(contents.to_vec())),
             _ => Err(anyhow!("Unexpected object type encountered: {}", name))
         }
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut data: Vec<u8>;
+        match self {
+            Object::Blob(contents) => {
+                let header = format!("blob {}\0", contents.len()).into_bytes();
+                data = Vec::with_capacity(header.len() + contents.len());
+                data.extend_from_slice(&header);
+                data.extend_from_slice(contents);
+            },
+        }
+        data
     }
 }

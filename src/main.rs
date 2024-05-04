@@ -5,7 +5,7 @@ mod commands;
 mod types;
 
 use crate::commands::{
-    cmd_cat_file, cmd_init
+    cmd_cat_file, cmd_hash_object, cmd_init
 };
 
 fn main() -> Result<()> {
@@ -26,6 +26,13 @@ fn main() -> Result<()> {
                 return Err(anyhow!("Usage: your_git.sh cat-file -p <object hash>"));
             }
             cmd_cat_file(&args[3])
+        },
+        // Usage: your_git.sh hash-object -w <file name>
+        "hash-object" => {
+            if args.len() < 4 || args[2] != "-w" {
+                return Err(anyhow!("Usage: your_git.sh hash-object -w <file name>"));
+            }
+            cmd_hash_object(&args[3])
         },
         _ => Err(anyhow!("Unknown command: {}", command))
     }
