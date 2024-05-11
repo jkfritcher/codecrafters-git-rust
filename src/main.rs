@@ -3,9 +3,10 @@ use std::env;
 
 mod commands;
 mod types;
+mod util;
 
 use crate::commands::{
-    cmd_cat_file, cmd_hash_object, cmd_init
+    cmd_cat_file, cmd_hash_object, cmd_init, cmd_ls_tree
 };
 
 fn main() -> Result<()> {
@@ -33,6 +34,20 @@ fn main() -> Result<()> {
                 return Err(anyhow!("Usage: your_git.sh hash-object -w <file name>"));
             }
             cmd_hash_object(&args[3])
+        },
+        "ls-tree" => {
+            let mut name_only = false;
+            if args.len() < 3 {
+                return Err(anyhow!("Usage: your_git.sh ls-tree [--name-only] <tree hash>"));
+            }
+            if args.len() >= 4 {
+                if args[2] != "--name-only" {
+                    return Err(anyhow!("Usage: your_git.sh ls-tree [--name-only] <tree hash>"));
+                }
+                name_only = true;
+            }
+            let hash = if name_only { &args[3] } else { &args[2] };
+            cmd_ls_tree(hash, name_only)
         },
         _ => Err(anyhow!("Unknown command: {}", command))
     }

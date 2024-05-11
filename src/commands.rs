@@ -1,11 +1,8 @@
-use anyhow::Result;
-use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
-use sha1::{Digest, Sha1};
-use std::{fs, io::{ErrorKind, Read, Write}, str};
+use anyhow::{anyhow, Result};
+use std::{fs, io::Read, str};
 
+use crate::util::{obj_type, read_object_bin, read_object_hex, write_object};
 use crate::types::Object;
-
-const GIT_OBJECTS_DIR: &str = ".git/objects";
 
 pub fn cmd_init() -> Result<()> {
     fs::create_dir(".git")?;
@@ -17,20 +14,17 @@ pub fn cmd_init() -> Result<()> {
     Ok(())
 }
 
-pub fn cmd_cat_file(object: &str) -> Result<()> {
-    // Build object path and name from hash
-    let object_name = format!("{}/{}/{}", GIT_OBJECTS_DIR, &object[0..2], &object[2..]);
+pub fn cmd_cat_file(hash: &str) -> Result<()> {
+    let data = read_object_hex(hash)?;
 
-    // Open object and decode it into a Vec
-    let obj = fs::File::open(object_name)?;
-    let mut decoder = ZlibDecoder::new(obj);
-    let mut data = Vec::new();
-    decoder.read_to_end(&mut data)?;
-
-    let Object::Blob(content) = Object::deserialize(&data)?;
-    print!("{}", str::from_utf8(&content)?);
-
-    Ok(())
+    let content = Object::deserialize(&data)?;
+    match content {
+        Object::Blob(content) => {
+            print!("{}", str::from_utf8(&content)?);
+            Ok(())
+        },
+        _ => Err(anyhow!("Unsupported object type.")),
+    }
 }
 
 pub fn cmd_hash_object(file: &str) -> Result<()> {
@@ -41,38 +35,34 @@ pub fn cmd_hash_object(file: &str) -> Result<()> {
     drop(file);
 
     // Create Blob and serialize it
-    let blob = Object::blob(buf);
+    let blob = Object::blob(buf)?;
     let data = blob.serialize();
 
-    // Calculate SHA1 hash of serialized data
-    let hash = {
-        let mut hasher = Sha1::new();
-        hasher.update(&data);
-        hasher.finalize()
-    };
-    let prefix = hex::encode(&hash[0..1]);
-    let fname = hex::encode(&hash[1..]);
-
-    // Create prefix directory, if needed
-    match fs::create_dir_all(format!("{}/{}", GIT_OBJECTS_DIR, prefix)) {
-        Ok(()) => (),
-        Err(err) => {
-            if err.kind() != ErrorKind::AlreadyExists {
-                return Err(err.into());
-            }
-            // Prefix already exists, ignore error
-            ()
-        }
-    }
-
-    // Open output file and compress object into it
-    let obj = fs::File::create(format!("{}/{}/{}", GIT_OBJECTS_DIR, prefix, fname))?;
-    let mut encoder = ZlibEncoder::new(obj, Compression::default());
-    encoder.write_all(&data)?;
-    encoder.finish()?;
+    // Write object and get the object hash
+    let hash = write_object(&data)?;
 
     // Print object hash
-    println!("{}", hex::encode(hash));
+    println!("{}", hash);
 
     Ok(())
+}
+
+pub fn cmd_ls_tree(hash: &str, name_only: bool) -> Result<()> {
+    let data = read_object_hex(hash)?;
+    let tree = Object::deserialize(&data)?;
+    match tree {
+        Object::Tree(entries) => {
+            for entry in entries {
+                if !name_only {
+                    let obj = read_object_bin(entry.hash())?;
+                    let obj_type = obj_type(&obj)?;
+                    println!("{:0>6} {} {}\t{}", entry.mode(), obj_type, hex::encode(entry.hash()), entry.name())
+                } else {
+                    println!("{}", entry.name())
+                }
+            }
+            Ok(())
+        },
+        o @ _ => Err(anyhow!("Expected a Tree object, and received a '{}'", o.name()))
+    }
 }
